@@ -14,5 +14,20 @@ public class UnsignedShortPixel extends Pixel {
 		this.pixel = data;
 	}
 	
+	public String toString() { 
+		
+		StringBuilder sb = new StringBuilder("[");
+		
+		for (int i=0;i<bands;i++) { 
+			sb.append(pixel[i]);
+			if (i != bands-1) { 
+				sb.append(",");
+			}
+		}
+		
+		sb.append("]");
+		
+		return sb.toString();		
+	}
 	
 }

@@ -96,7 +96,7 @@ public class Main {
             readHeader(new File(header));
             readData(new File(data));
 
-            ATGP atgp = new ATGP(image, lines, samples, bands); 
+            ATGP atgp = new ATGP(image, lines, samples, bands, 30); 
             atgp.run();
 
             int [][] result = atgp.getResult();
