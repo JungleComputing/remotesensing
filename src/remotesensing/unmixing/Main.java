@@ -131,6 +131,12 @@ public class Main {
             
             UnsignedShortPixel [] endmembers = getEndMembers(img, endMemberCount);
             
+            System.out.println("Endmembers: ");
+            
+            for (UnsignedShortPixel p : endmembers) {             	
+            	System.out.println(p);            	
+            }
+                        
             FloatImage result = inversion(img, endmembers);
             
             /*

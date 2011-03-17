@@ -14,6 +14,10 @@ public class UnsignedShortPixel extends Pixel {
 		this.pixel = data;
 	}
 	
+	public short [] getData() { 
+		return pixel;
+	}
+	
 	public String toString() { 
 		
 		StringBuilder sb = new StringBuilder("[");
