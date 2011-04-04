@@ -1,11 +1,10 @@
 package remotesensing.util;
 
-import java.io.IOException;
-import java.util.Arrays;
+import java.util.BitSet;
 
 public class RemoveBands {
 
-	private static void handleBands(String arg, boolean [] bands) throws Exception { 
+	private static void handleBands(String arg, BitSet bands) throws Exception { 
 		
 		int index = arg.indexOf("-");
 		
@@ -21,12 +20,12 @@ public class RemoveBands {
 			start = end = Integer.parseInt(arg);
 		}
 
-		if (start < 1 || end > bands.length || end < start) { 
-			throw new Exception("Illegal band value! " + start + "-" + end);
+		if (start < 1 || end > bands.length() || end < start) { 
+			throw new Exception("Illegal band value! " + start + "-" + end + " vs. 0-" + bands.length());
 		}
 
 		for (int i=start;i<=end;i++) { 
-			bands[i-1] = false;
+			bands.set(i-1, false);
 		}
 	}
 	
@@ -40,9 +39,8 @@ public class RemoveBands {
 		
 		Image img = Utils.readENVI(inheader, indata);
 		
-		boolean [] bands = new boolean[img.bands];
-		
-		Arrays.fill(bands, true);
+		BitSet bands = new BitSet(img.bands);
+		bands.set(0, img.bands, true);
 		
 		for (int i=4;i<args.length;i++) { 
 			handleBands(args[i], bands);

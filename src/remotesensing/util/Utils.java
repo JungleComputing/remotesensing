@@ -9,9 +9,11 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.BitSet;
 
 import remotesensing.util.Image.ByteOrder;
 import remotesensing.util.Image.DataType;
@@ -240,25 +242,50 @@ public class Utils {
 		return count;
 	}
 
-	private static void writeENVIDataBSQ(File data, Image img, boolean [] bands) throws Exception {
+	private static void writeENVIDataBSQ(File data, Image img, BitSet bands) throws Exception {
 		throw new Exception("writeENVIDataBSQ NOT implemented!");
 	}
-	
-	private static void writeENVIDataBIP(File data, Image img, boolean [] bands) throws Exception {
 
-		FileOutputStream out = new FileOutputStream(data);
-		FileChannel channel = out.getChannel();
-		//channel.
+	private static void writeENVIDataBIP(File data, Image img, BitSet bands) throws Exception {
+
+		BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(data));
+
+		// Read on a line-by-line basis		
+		int datasize = img.type.bytes();		
+		int size = img.samples * img.bands * datasize;
 		
+		byte [] line = new byte[size];
+
+		for (int i=0;i<img.lines;i++) {
+			img.getRawData(i*size, line, 0, size);	
 		
-	
+			if (bands == null) { 
+				out.write(line);
+			} else {
+				
+				int off = 0;
+				
+				// SLOW!
+				for (int p=0;p<img.samples;p++) { 
+					for (int b=0;b<img.bands;b++) {
+						
+						if (bands.get(b)) { 
+							out.write(line, off, datasize);
+						}						
+						off+= datasize;
+					}					
+				}
+			} 
+		}
+		
+		out.close();
 	}
 	
-	private static void writeENVIDataBIL(File data, Image img, boolean [] bands) throws Exception {
+	private static void writeENVIDataBIL(File data, Image img, BitSet bands) throws Exception {
 		throw new Exception("writeENVIDataBIL NOT implemented!");
 	}
 	
-	private static void writeENVIData(File data, Image img, boolean [] bands) throws Exception {
+	private static void writeENVIData(File data, Image img, BitSet bands) throws Exception {
 
 		switch (img.interleave) { 
 		case BSQ:
@@ -275,13 +302,13 @@ public class Utils {
 		}
 	}
 	
-	private static void writeENVIHeader(File header, Image img, boolean [] bands) throws IOException {
+	private static void writeENVIHeader(File header, Image img, BitSet bands) throws IOException {
 
 		BufferedWriter out = new BufferedWriter(new FileWriter(header));
 		
 		out.write("samples = " + img.samples + "\n");
 		out.write("lines = " + img.lines + "\n");
-		out.write("bands = " + countBands(bands) + "\n");
+		out.write("bands = " + bands.cardinality() + "\n");
 		out.write("interleave = " + img.interleave.name() + "\n");
 		out.write("byte order = " + img.order.number + "\n");
 		out.write("data type = " + img.type.number + "\n");
@@ -289,13 +316,13 @@ public class Utils {
 		out.close();
 	}
 		
-	public static void writeENVI(String header, String data, Image img, boolean [] bands) throws IOException {
+	public static void writeENVI(String header, String data, Image img, BitSet bands) throws Exception {
 		writeENVI(new File(header), new File(data), img, bands);
 	}
 	
-	public static void writeENVI(File header, File data, Image img, boolean [] bands) throws IOException {
+	public static void writeENVI(File header, File data, Image img, BitSet bands) throws Exception {
 		writeENVIHeader(header, img, bands);
-		//writeENVIData(data, img, bands);
+		writeENVIData(data, img, bands);
 	}
 	
 	public static byte [] generateLUT(int[] histogram) {

@@ -6,12 +6,13 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.util.BitSet;
 
 public abstract class Image {
 
 	// The different data types supported by ENVI
 	public enum DataType { 
-		S8(1, "8-bit byte") { 
+		S8(1, 1, "8-bit byte") { 
 			Object createArray(int length) { 
 				return new byte[length]; 
 			} 
@@ -38,7 +39,7 @@ public abstract class Image {
 			}
 		},
 		
-		S16(2, "signed 16-bit integer") {
+		S16(2, 2, "signed 16-bit integer") {
 			
 			Object createArray(int length) { 
 				return new short[length]; 
@@ -70,7 +71,7 @@ public abstract class Image {
 			}
 		},
 			
-		S32(3, "signed 32-bit integer") { 
+		S32(3, 4, "signed 32-bit integer") { 
 			Object createArray(int length) { 
 				return new int[length]; 
 			} 
@@ -98,7 +99,7 @@ public abstract class Image {
 			}
 		},
 
-		S64(14, "signed 64-bit integer") { 
+		S64(14, 8, "signed 64-bit integer") { 
 			Object createArray(int length) { 
 				return new long[length]; 
 			} 
@@ -127,7 +128,7 @@ public abstract class Image {
 
 		}, 
 
-		U16(12, "unsigned 16-bit integer") { 
+		U16(12, 2, "unsigned 16-bit integer") { 
 			Object createArray(int length) { 
 				return new short[length]; 
 			} 
@@ -156,7 +157,7 @@ public abstract class Image {
 
 		},
 		
-		U32(13, "unsigned 32-bit integer") { 
+		U32(13, 4, "unsigned 32-bit integer") { 
 			Object createArray(int length) { 
 				return new int[length];
 			} 
@@ -185,7 +186,7 @@ public abstract class Image {
 
 		},
 		
-		U64(15, "unsigned 64-bit integer") { 
+		U64(15, 8, "unsigned 64-bit integer") { 
 			Object createArray(int length) { 
 				return new long[length]; 
 			} 
@@ -213,7 +214,7 @@ public abstract class Image {
 			}
 		},
 		
-		F32(4, "32-bit floating point") { 
+		F32(4, 4, "32-bit floating point") { 
 			Object createArray(int length) { 
 				return new float[length]; 
 			} 
@@ -242,7 +243,7 @@ public abstract class Image {
 
 		},
 
-		F64(5, "64-bit floating point") { 
+		F64(5, 8, "64-bit floating point") { 
 			Object createArray(int length) { 
 				return new double[length]; 
 			} 
@@ -271,7 +272,7 @@ public abstract class Image {
 
 		},
 		
-		C64(6, "64-bit complex floating point") { 
+		C64(6, 8, "64-bit complex floating point") { 
 			Object createArray(int length) { 
 				return new float[2*length]; 
 			} 
@@ -299,7 +300,7 @@ public abstract class Image {
 			}
 		},
 		
-		C128(9, "128-bit complex floating point") { 
+		C128(9, 16, "128-bit complex floating point") { 
 			Object createArray(int length) { 
 				return new double[2*length]; 
 			} 
@@ -325,33 +326,33 @@ public abstract class Image {
 				
 				return new C128Pixel(tmp);
 			}
-
-			
 		};
 			
 		public final int number;
+		public final int bytes;		
 		public final String description;
 		
-		DataType(int number, String description) { 
+		DataType(int number, int bytes, String description) { 
 			this.number = number;
+			this.bytes = bytes;
 			this.description = description;
 		}
-		        
+		
 		public int number() { 
 			return number; 
 		}
+		
+		public int bytes() { 
+			return bytes; 
+		}		
 		
 		public abstract Pixel createPixel(int bands); 
 		public abstract Pixel generateSkewer(MersenneTwister twister, int bands); 
 		
 		abstract Object createArray(int length); 
 		abstract void get(ByteBuffer source, int toff, int tlen, Object target, int soff, int slen);
-		
-		
+				
 		void get(ByteBuffer source, int soff, Object target, int toff) { 
-			
-		//	System.out.println("Reading 1 element");
-			
 			get(source, soff, 1, target, toff, 1);
 		}
 				
@@ -452,6 +453,7 @@ public abstract class Image {
     }
     
     public abstract Object getData(); 
+    public abstract void getRawData(int offset, byte [] target, int toffset, int tlen); 
     
     protected Object getBandBIL(int band) {  
         throw new RuntimeException("getBandBIL NOT implemented!");
@@ -478,37 +480,36 @@ public abstract class Image {
     	}
     }
     
-    protected Pixel getPixelBIL(Pixel p, int index) { 
+    protected Pixel getPixelBIL(Pixel p, int index, BitSet bands) { 
         throw new RuntimeException("getPixelBIL NOT implemented!");
     }
 
-    protected Pixel getPixelBSQ(Pixel p, int index) { 
+    protected Pixel getPixelBSQ(Pixel p, int index, BitSet bands) { 
         throw new RuntimeException("getPixelBSQ NOT implemented!");
     }
 
-    protected Pixel getPixelBIP(Pixel p, int index) { 
+    protected Pixel getPixelBIP(Pixel p, int index, BitSet bands) { 
         throw new RuntimeException("getPixelBIP NOT implemented!");
     }
        
     public Pixel getPixel(int index) { 
-    	
-    	Pixel p = type.createPixel(bands);
-    	
-    	switch (interleave) { 
-    	case BIL: return getPixelBIL(p, index);     		     
-    	case BIP: return getPixelBIP(p, index);    		
-    	case BSQ: return getPixelBSQ(p, index);
-    	default:
-    		throw new RuntimeException("Failed to get pixel " + index + ": Unknown interleaving!");
-    	}
+    	return getPixel(type.createPixel(bands), index);
     }
 
     public Pixel getPixel(Pixel pixel, int index) { 
+    	return getPixel(pixel, index, null);
+    }
+    
+    public Pixel getPixel(Pixel pixel, int index, BitSet bands) { 
+
+    	if (pixel == null) { 
+    		pixel = type.createPixel(bands.cardinality());		
+    	}
     	
     	switch (interleave) { 
-    	case BIL: return getPixelBIL(pixel, index);     		     
-    	case BIP: return getPixelBIP(pixel, index);    		
-    	case BSQ: return getPixelBSQ(pixel, index);
+    	case BIL: return getPixelBIL(pixel, index, bands);     		     
+    	case BIP: return getPixelBIP(pixel, index, bands);    		
+    	case BSQ: return getPixelBSQ(pixel, index, bands);
     	default:
     		throw new RuntimeException("Failed to get pixel " + index + ": Unknown interleaving!");
     	}

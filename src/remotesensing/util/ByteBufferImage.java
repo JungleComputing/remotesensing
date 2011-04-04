@@ -1,6 +1,7 @@
 package remotesensing.util;
 
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 
 public class ByteBufferImage extends Image {
 
@@ -32,6 +33,12 @@ public class ByteBufferImage extends Image {
 	}
 
 	@Override
+	public void getRawData(int offset, byte [] target, int toffset, int tlen) { 
+		// reads raw data 
+		DataType.S8.get(data, offset, tlen, target, toffset, tlen);
+	}
+	
+	@Override
 	protected Object getBandBSQ(int band) { 
 
 		int len = samples*lines;    	
@@ -59,19 +66,42 @@ public class ByteBufferImage extends Image {
 	}
 	
 	@Override
-	protected Pixel getPixelBIP(Pixel p, int index) {     
+	protected Pixel getPixelBIP(Pixel p, int index, BitSet selectedBands) {     
 		int offset = index * bands;
-		type.get(data, offset, bands, p.getData(), 0, bands);
+
+		if (selectedBands == null) { 
+			type.get(data, offset, bands, p.getData(), 0, bands);
+		} else {
+			
+			int target = 0;
+			
+			for (int i=0;i<bands;i++) {				
+				if (selectedBands.get(i)) { 
+					type.get(data, offset+i, p.getData(), target++);
+				} 
+			}
+		}
+		
 		return p;    	
 	}
 
 	@Override
-	protected Pixel getPixelBSQ(Pixel p, int index) { 
+	protected Pixel getPixelBSQ(Pixel p, int index, BitSet selectedBands) { 
 
 		int size = samples * bands;
 
-		for (int i=0;i<bands;i++) { 
-			type.get(data, index + i*size, p.getData(), i);
+		if (selectedBands == null) { 
+			for (int i=0;i<bands;i++) { 
+				type.get(data, index + i*size, p.getData(), i);
+			}
+		} else { 			
+			int target = 0;
+			
+			for (int i=0;i<bands;i++) {
+				if (selectedBands.get(i)) { 
+					type.get(data, index + i*size, p.getData(), target++);
+				} 
+			}
 		}
 
 		return p;    	

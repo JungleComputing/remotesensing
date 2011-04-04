@@ -1,11 +1,5 @@
 package remotesensing.util;
 
-import java.nio.ByteBuffer;
-
-import remotesensing.util.Image.ByteOrder;
-import remotesensing.util.Image.DataType;
-import remotesensing.util.Image.Interleave;
-
 public class S16Image extends Image {
 
 	private short [] data;
