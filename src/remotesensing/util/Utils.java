@@ -1,14 +1,24 @@
 package remotesensing.util;
 
-import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
+
+import remotesensing.util.Image.ByteOrder;
+import remotesensing.util.Image.DataType;
+import remotesensing.util.Image.Interleave;
 
 public class Utils {
-
+/*
 	private static class FileInfo { 
 		int lines;
 		int samples;
@@ -62,11 +72,12 @@ public class Utils {
 
 		return info;
 	}
-
-	public static Image readENVI(String header, String data) throws IOException {
+*/
+	public static Image readENVI(String header, String data) throws Exception {
 		return readENVI(new File(header), new File(data));
 	}
-
+	
+/*
 	private static Image readENVIDataBSQ(File data, FileInfo info) throws IOException { 
 		throw new IOException("NOT implemented!");
 	}
@@ -84,7 +95,7 @@ public class Utils {
         	skip -= bis.skip(skip);
         }
         
-        int pos = 0;
+        int pos = band*pixels;
         int index = 0;
         
         while (index < pixels) { 
@@ -95,17 +106,10 @@ public class Utils {
 
             if (byteorder == 0) { 
             	// Little endian 
-            	// Big endian
-
-            	// Shift pixels from -32K .. +32K to 0 .. 64K 
-            	int value = (((b << 8) | (a & 0xff))) + Short.MAX_VALUE;          
-            	target[pos++] = (short) value;
+            	target[pos++] = (short) ((b << 8) | (a & 0xff));
             } else { 
             	// Big endian
-
-            	// Shift pixels from -32K .. +32K to 0 .. 64K 
-            	int value = (((a << 8) | (b & 0xff))) + Short.MAX_VALUE;          
-            	target[pos++] = (short) value;
+            	target[pos++] = (short) ((a << 8) | (b & 0xff));
             }
             
             skip = (bands-1)*2;
@@ -164,13 +168,136 @@ public class Utils {
 			throw new IOException("Unsupported interleave format: " + info.interleave);
 		}
 	}
+*/
+	public static Image readENVI(File header, File data) throws Exception {
 
-	public static Image readENVI(File header, File data) throws IOException {
+		System.out.println("Reading header file " + header);
 
-		FileInfo tmp = readHeader(header);
-		return readENVIData(data, tmp);
+		int samples = -1;
+		int lines = -1;
+		int bands = -1;
+		
+		// Default values....
+		Image.ByteOrder order = ByteOrder.MSF; 
+		Image.Interleave interleave = Interleave.BSQ;
+		Image.DataType type = DataType.S8;
+		
+		BufferedReader r = new BufferedReader(new FileReader(header));
+
+		String l = r.readLine();
+
+		while (l != null) { 
+
+			if (l.startsWith("samples")) { 
+				samples = Integer.parseInt(l.substring(l.indexOf("=") + 1).trim());
+			} else if (l.startsWith("lines")) {
+				lines = Integer.parseInt(l.substring(l.indexOf("=") + 1).trim());
+			} else if (l.startsWith("bands")) {
+				bands = Integer.parseInt(l.substring(l.indexOf("=") + 1).trim());
+			} else if (l.startsWith("interleave")) { 
+				interleave = Interleave.convert(l.substring(l.indexOf("=") + 1).trim());
+			} else if (l.startsWith("data type")) { 
+				type = DataType.convert(Integer.parseInt(l.substring(l.indexOf("=") + 1).trim()));
+			} else if (l.startsWith("byte order")) { 
+				order = ByteOrder.convert(Integer.parseInt(l.substring(l.indexOf("=") + 1).trim()));
+			}
+
+			l = r.readLine();
+		}
+
+		r.close();
+
+		if (samples <= 0 || lines <= 0 || bands <= 0) { 
+			throw new IOException("Incorrect header file");
+		}
+
+		System.out.println("Lines " + lines);
+		System.out.println("Sample " + samples);
+		System.out.println("Bands " + bands);
+		System.out.println("Interleave " + interleave);
+		System.out.println("Data type " + type);
+		System.out.println("Byte order " + order); 
+
+		FileInputStream fin = new FileInputStream(data);
+
+		System.out.println("Size " + data.length()); 
+
+		MappedByteBuffer buffer = fin.getChannel().map(MapMode.READ_ONLY, 0, data.length());
+		
+		return new ByteBufferImage(buffer, lines, samples, bands, type, interleave, order, new int[] { 0, 0, 0 }, "empty");
 	}
 
+	public static int countBands(boolean [] bands) throws IOException {
+		
+		int count = 0;
+		
+		for (int i=0;i<bands.length;i++) {
+			if (bands[i]) { 
+				count++;
+			}
+		}
+		
+		return count;
+	}
+
+	private static void writeENVIDataBSQ(File data, Image img, boolean [] bands) throws Exception {
+		throw new Exception("writeENVIDataBSQ NOT implemented!");
+	}
+	
+	private static void writeENVIDataBIP(File data, Image img, boolean [] bands) throws Exception {
+
+		FileOutputStream out = new FileOutputStream(data);
+		FileChannel channel = out.getChannel();
+		channel.
+		
+		
+	
+	}
+	
+	private static void writeENVIDataBIL(File data, Image img, boolean [] bands) throws Exception {
+		throw new Exception("writeENVIDataBIL NOT implemented!");
+	}
+	
+	private static void writeENVIData(File data, Image img, boolean [] bands) throws Exception {
+
+		switch (img.interleave) { 
+		case BSQ:
+			writeENVIDataBSQ(data, img, bands);
+			break;
+		case BIP:
+			writeENVIDataBIP(data, img, bands);
+			break;
+		case BIL:
+			writeENVIDataBIL(data, img, bands);
+			break;
+		default: 
+			throw new IOException("Cannot write ENVI data: unknown interleave");
+		}
+	}
+	
+	private static void writeENVIHeader(File header, Image img, boolean [] bands) throws IOException {
+
+		BufferedWriter out = new BufferedWriter(new FileWriter(header));
+		
+		out.write("samples = " + img.samples + "\n");
+		out.write("lines = " + img.lines + "\n");
+		out.write("bands = " + countBands(bands) + "\n");
+		out.write("interleave = " + img.interleave.name() + "\n");
+		out.write("byte order = " + img.order.number + "\n");
+		out.write("data type = " + img.type.number + "\n");
+	
+		out.close();
+	}
+		
+	public static void writeENVI(String header, String data, Image img, boolean [] bands) throws IOException {
+		writeENVI(new File(header), new File(data), img, bands);
+	}
+	
+	public static void writeENVI(File header, File data, Image img, boolean [] bands) throws IOException {
+		writeENVIHeader(header, img, bands);
+		writeENVIData(data, img, bands);
+	}
+	
 	public static byte [] generateLUT(int[] histogram) {
 
 		int min = -1;

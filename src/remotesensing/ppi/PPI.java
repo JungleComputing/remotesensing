@@ -1,55 +1,42 @@
 package remotesensing.ppi;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 
+import remotesensing.util.Image;
+import remotesensing.util.Image.DataType;
 import remotesensing.util.MersenneTwister;
-import remotesensing.util.UnsignedShortImage;
-import remotesensing.util.UnsignedShortPixel;
+import remotesensing.util.Pixel;
+import remotesensing.util.S16Image;
 
 public class PPI {
 
-	private final UnsignedShortImage input;
-	private final UnsignedShortPixel [] skewers;
+	private final Image input;
+	private final Pixel [] skewers;
 	
-	private UnsignedShortImage resultImage;
+	private S16Image resultImage;
 	
-	private final int [] result; 
+	private int maxCount;
+	private int minCount;
 	
-	public PPI(UnsignedShortImage input, int skewers) {		
-		// NOTE: assumes BSQ image storage.
-		this(input, generateSkewers(skewers, input.getBands()));
+	public PPI(Image input, int skewers) {		
+		this(input, generateSkewers(input.type, skewers, input.bands));
     }
 	
-	public PPI(UnsignedShortImage input, UnsignedShortPixel [] skewers) {		
+	public PPI(Image input, Pixel [] skewers) {		
 		// NOTE: assumes BSQ image storage. 		
 		this.input = input;
 		this.skewers = skewers;		
-		this.result = new int[skewers.length*2];
     }
-
-	private static UnsignedShortPixel generateSkewer(MersenneTwister twister, int bands) {
-		
-		final short [] tmp = new short[bands];
-		
-		for (int i=0;i<bands;i++) { 
-			// TODO: is this right ? Unsigned short should be between 0 and MAX_VALUE*2
-			tmp[i] = (short) (twister.nextDouble() * Short.MAX_VALUE);
-		}
-		
-		return new UnsignedShortPixel(tmp, bands);
-	}
 	
-	private static UnsignedShortPixel [] generateSkewers(int skewers, int bands) {
+	private static Pixel [] generateSkewers(DataType type, int skewers, int bands) {
 
 		long start = System.currentTimeMillis();
 		
-		final UnsignedShortPixel [] tmp = new UnsignedShortPixel[skewers];
+		final Pixel [] tmp = new Pixel[skewers];
 		final MersenneTwister twister = new MersenneTwister(42);
 		
-		
-		for (int i=0;i<skewers;i++) { 
-			tmp[i] = generateSkewer(twister, bands);
+		for (int i=0;i<skewers;i++) {			
+			tmp[i] = type.generateSkewer(twister, bands);
 		}
 		
 		long end = System.currentTimeMillis();
@@ -59,12 +46,18 @@ public class PPI {
 		return tmp;
 	}	
 	
+	/*
 	private void processSkewer(int index) { 
 		
 		long start = System.currentTimeMillis();
 		
-		final int pixels = input.getLines() * input.getSamples();
-		final int bands = input.getBands();
+		final int pixels = input.lines * input.samples;
+		final int bands = input.bands;
+		
+		
+		
+		
+		
 		
 		final short [] img = input.getData();
 		final short [] pix = skewers[index].getData();		
@@ -104,42 +97,87 @@ public class PPI {
 		
 		System.out.println("Skewer " + index + " " + indexMIN + " " + peMIN + " " + indexMAX + " " + peMAX + " took " + (end-start)/1000.0 + " sec. ");		
 	}
+    */
 
-	public UnsignedShortImage getResultImage() {
+
+	public S16Image getResultImage() {
 		return resultImage;
+	}
+	
+	public int getResultMAXCount() {
+		return maxCount;
+	}
+	
+	public int getResultMINCount() {
+		return minCount;
 	}
 	
 	public void run() { 
 		
-		for (int i=0;i<skewers.length;i++) { 
-			processSkewer(i);
+		int pixels = input.samples * input.lines;
+
+		double [] max = new double[skewers.length]; 
+		double [] min = new double[skewers.length];
+		
+		Arrays.fill(max, Double.MIN_VALUE);
+		Arrays.fill(min, Double.MAX_VALUE);
+		
+		int [] maxIndex = new int[skewers.length];
+		int [] minIndex = new int[skewers.length];		
+		
+		for (int i=0;i<pixels;i++) {
+			
+			Pixel p = input.getPixel(i);
+			
+			for (int j=0;j<skewers.length;j++) { 
+			
+				Pixel s = skewers[j];
+				
+			//	System.out.println(p + " . " + s);
+				
+				double value = p.dot(s);
+				
+				if (value > max[j]) { 
+					max[j] = value;
+					maxIndex[j] = i;
+				}
+				
+				if (value < min[j]) { 
+					min[j] = value;
+					minIndex[j] = i;
+				}
+			}
 		}
 
-		short [] tmp = new short[input.getSamples() * input.getLines()]; 
-
-		int max = 0;
+		resultImage = new S16Image(input.lines, input.samples, 1);
+		short [] tmp = (short[]) resultImage.getData();
 		
-		for (int i=0;i<result.length;i++) { 
-			tmp[result[i]]++;
+		maxCount = 0;
+		minCount = Integer.MAX_VALUE;
+		
+		for (int i=0;i<maxIndex.length;i++) { 
+			tmp[maxIndex[i]]++;
 			
-			if (tmp[result[i]] > max) { 
-				max = tmp[result[i]];
+			if (tmp[maxIndex[i]] > maxCount) { 
+				maxCount = tmp[maxIndex[i]];
+			}
+			
+			tmp[minIndex[i]]++;
+			
+			if (tmp[minIndex[i]] < minCount) { 
+				minCount = tmp[minIndex[i]];
 			}
 		}
 	
-		System.out.println("MAX: " + max);
+		System.out.println("MAX: " + maxCount + " MIN: " + minCount);
 		
-		
-		for (int i=0;i<input.getSamples() * input.getLines();i++) { 
+		/*for (int i=0;i<input.samples * input.lines;i++) { 
 			
-			if (i % input.getSamples() == 0) { 
+			if (i % input.samples == 0) { 
 				System.out.println();
 			}
 			
 			System.out.printf("%4d", tmp[i]);
-		}
-		
-		resultImage = new UnsignedShortImage(tmp, input.getLines(), input.getSamples(), 1);
+		}*/
 	}
-	
 }

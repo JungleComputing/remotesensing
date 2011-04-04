@@ -166,8 +166,8 @@ public class PngEncoder extends Object {
             return null;
         }
         
-        width = image.getSamples();
-        height = image.getLines();
+        width = image.samples;
+        height = image.lines;
 
         /*
          * start with an array that is big enough to hold all the pixels
@@ -367,8 +367,8 @@ public class PngEncoder extends Object {
 
         startPos = bytePos = writeInt4(13, bytePos);
         bytePos = writeBytes(IHDR, bytePos);
-        width = image.getSamples();
-        height = image.getLines();
+        width = image.samples;
+        height = image.lines;
         bytePos = writeInt4(width, bytePos);
         bytePos = writeInt4(height, bytePos);
         bytePos = writeByte(8, bytePos); // bit depth

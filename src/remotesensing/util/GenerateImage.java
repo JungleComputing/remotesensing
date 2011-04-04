@@ -59,7 +59,7 @@ public class GenerateImage {
 				int xpos = x-gausianMid+i;
 				int ypos = y-gausianMid+j;
 
-				if (xpos > 0 && xpos < samples && ypos > 0 && ypos < lines) { 
+				if (xpos >= 0 && xpos < samples && ypos >= 0 && ypos < lines) { 
 					image[ypos*bands*samples + xpos*bands+b] = (short)(gausian[j][i] * max);
 				}
 			}
@@ -88,20 +88,39 @@ public class GenerateImage {
         header.println("bands = " + bands);
         header.println("interleave = bip");
         header.println("byte order = 1");
+        header.println("data type = 2");
         header.println("description = { generated test image }");
         header.close();
         
-        createGausian(Math.max(lines, samples));               
+        createGausian(Math.max(lines/4, samples/4));               
         //createGausian(0.84089642);
         
         Random r = new Random();
         
         for (int i=0;i<bands;i++) { 
 
-        	int x = (int)(r.nextDouble() * samples);
-        	int y = (int)(r.nextDouble() * lines);
+        	switch (i) { 
+        	case 0:
+            	putBlob(image, samples, lines, bands, samples/2, lines/2, i);
+                break;
+        	case 1:
+            	putBlob(image, samples, lines, bands, 0, 0, i);
+                break;
+        	case 2: 
+            	putBlob(image, samples, lines, bands, samples-1, 0, i);
+                break;
+        	case 3:
+            	putBlob(image, samples, lines, bands, 0, lines-1, i);
+                break;
+        	case 4: 
+            	putBlob(image, samples, lines, bands, samples-1, lines-1, i);
+            	break;
+        	default: 
+        		int x = (int)(r.nextDouble() * samples);
+        		int y = (int)(r.nextDouble() * lines);
 
-        	putBlob(image, samples, lines, bands, x, y, i);
+        		putBlob(image, samples, lines, bands, x, y, i);
+        	}
         }
         
         BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(name + ".bip"));

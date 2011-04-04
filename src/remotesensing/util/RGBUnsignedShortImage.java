@@ -19,16 +19,16 @@ public class RGBUnsignedShortImage extends Image {
     	RGBUnsignedShortToRGBConversion c = (RGBUnsignedShortToRGBConversion) conv;
 
     	int dstIndex = 0;
-        
-        for (int j=0;j<h;j++) { 
-        
-            int index = (y+j) * samples + x;
-            
-            for (int i=0;i<w;i++) { 
-            	target[dstIndex++] = c.convert(data[0][index], data[1][index], data[2][index]);
-            	index++;
-            }
-        }
+
+    	for (int j=0;j<h;j++) { 
+
+    		int index = (y+j) * samples + x;
+
+    		for (int i=0;i<w;i++) { 
+    			target[dstIndex++] = c.convert(data[0][index], data[1][index], data[2][index]);
+    			index++;
+    		}
+    	}
     }
     
     public void setPixel(int line, int sample, int band, short value) { 

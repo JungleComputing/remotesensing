@@ -7,4 +7,7 @@ public abstract class Pixel {
     protected Pixel(int bands) { 
         this.bands = bands;
     }
+
+    public abstract Object getData(); 
+    public abstract double dot(Pixel other); 
 }
