@@ -248,7 +248,7 @@ public class Utils {
 
 		FileOutputStream out = new FileOutputStream(data);
 		FileChannel channel = out.getChannel();
-		channel.
+		//channel.
 		
 		
 	
@@ -295,7 +295,7 @@ public class Utils {
 	
 	public static void writeENVI(File header, File data, Image img, boolean [] bands) throws IOException {
 		writeENVIHeader(header, img, bands);
-		writeENVIData(data, img, bands);
+		//writeENVIData(data, img, bands);
 	}
 	
 	public static byte [] generateLUT(int[] histogram) {

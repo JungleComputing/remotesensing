@@ -1,0 +1,1 @@
+java -cp ./eclipse-build remotesensing.util.RemoveBands test/f970619t01p02r02c/f970619t01p02_r02_sc04.a.hdr test/f970619t01p02r02c/f970619t01p02_r02_sc04.a.rfl test3.hdr test3.bip 1-3 105-115 150-170
