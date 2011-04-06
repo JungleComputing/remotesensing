@@ -6,6 +6,8 @@ import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
+import remotesensing.util.Image.DataType;
+
 /**
  * PngEncoder takes a Java Image object and creates a byte string which can be 
  * saved as a PNG file.
@@ -131,7 +133,12 @@ public class PngEncoder extends Object {
      * @see java.awt.Image
      */
     public PngEncoder(Image image, boolean encodeAlpha, int whichFilter, int compLevel) {
-        this.image = image;
+     
+    	if (!(image.type == DataType.U8 && image.bands == 4)) { 
+    		throw new IllegalArgumentException("Incompatible image type!");
+    	}
+    	
+    	this.image = image;
         this.encodeAlpha = encodeAlpha;
         setFilter(whichFilter);
         if (compLevel >= 0 && compLevel <= 9) {
@@ -148,6 +155,11 @@ public class PngEncoder extends Object {
      */
     public void setImage(Image image) {
         this.image = image;
+ 
+       	if (!(image.type == DataType.U8 && image.bands == 4)) { 
+    		throw new IllegalArgumentException("Incompatible image type!");
+    	}
+ 
         pngBytes = null;
     }
 
@@ -158,7 +170,7 @@ public class PngEncoder extends Object {
      * @param encodeAlpha boolean false=no alpha, true=encode alpha
      * @return an array of bytes, or null if there was a problem
      */
-    public byte[] pngEncode(boolean encodeAlpha, Conversion c) {
+    public byte[] pngEncode(boolean encodeAlpha) {
         
         byte[]  pngIdBytes = {-119, 80, 78, 71, 13, 10, 26, 10};
 
@@ -184,7 +196,7 @@ public class PngEncoder extends Object {
         //hdrPos = bytePos;
         writeHeader();
         //dataPos = bytePos;
-        if (writeImageData(c)) {
+        if (writeImageData()) {
             writeEnd();
             pngBytes = resizeByteArray(pngBytes, maxPos);
         }
@@ -200,8 +212,8 @@ public class PngEncoder extends Object {
      *
      * @return an array of bytes, or null if there was a problem
      */
-    public byte[] pngEncode(Conversion c) {
-        return pngEncode(encodeAlpha, c);
+    public byte[] pngEncode() {
+        return pngEncode(encodeAlpha);
     }
 
     /**
@@ -438,7 +450,7 @@ public class PngEncoder extends Object {
      *
      * @return true if no errors; false if error grabbing pixels
      */
-    protected boolean writeImageData(Conversion c) {
+    protected boolean writeImageData() {
         int rowsLeft = height;  // number of rows remaining to write
         int startRow = 0;       // starting row to process this time through
         int nRows;              // how many rows to grab at a time
@@ -460,23 +472,25 @@ public class PngEncoder extends Object {
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream(1024);
 
         DeflaterOutputStream compBytes = new DeflaterOutputStream(outBytes, scrunch);
+
+        byte [] data = null;
+        
         try {
             while (rowsLeft > 0) {
                 nRows = Math.min(32767 / (width * (bytesPerPixel + 1)), rowsLeft);
                 nRows = Math.max( nRows, 1 );
 
-                int [] pixels = new int[width * nRows];
-
+            
                 //pg = new PixelGrabber(image, 0, startRow,
                 //    width, nRows, pixels);
                 
-                try {
-                    image.getAsRGB(pixels, 0, startRow, width, nRows, c);
-                    //pg.grabPixels();
-                } catch (Exception e) {
-                    System.err.println("interrupted waiting for pixels!");
-                    return false;
-                }
+            //    try {
+            //        image.getAsIntRGB(pixels, 0, startRow, width, nRows);
+            //        //pg.grabPixels();
+            //    } catch (Exception e) {
+            //        System.err.println("interrupted waiting for pixels!");
+            //        return false;
+             //   }
 
               //  if ((pg.getStatus()) != 0) {
               //      System.err.println("image fetch aborted or errored");
@@ -489,6 +503,17 @@ public class PngEncoder extends Object {
                  */
                 scanLines = new byte[width * nRows * bytesPerPixel +  nRows];
 
+                if (data == null || data.length != (width*nRows*4)) { 
+                	data = new byte[width*nRows*4];
+                }
+                
+                try { 
+                	image.getRawData(startRow*width*4, data, 0, nRows*width*4);
+                } catch (Exception e) { 
+                	System.err.println("Failed to retrieve pixels! " + e);
+                	return false;
+                }
+                
                 if (filter == FILTER_SUB) {
                     leftBytes = new byte[16];
                 }
@@ -503,12 +528,14 @@ public class PngEncoder extends Object {
                         scanLines[scanPos++] = (byte) filter;
                         startPos = scanPos;
                     }
-                    scanLines[scanPos++] = (byte) ((pixels[i] >> 16) & 0xff);
-                    scanLines[scanPos++] = (byte) ((pixels[i] >>  8) & 0xff);
-                    scanLines[scanPos++] = (byte) ((pixels[i]) & 0xff);
+                    scanLines[scanPos++] = data[4*i+1];   //(byte) ((pixels[i] >> 16) & 0xff);
+                    scanLines[scanPos++] = data[4*i+2];   //(byte) ((pixels[i] >>  8) & 0xff);
+                    scanLines[scanPos++] = data[4*i+3];   //(byte) ((pixels[i]) & 0xff);
+                    
                     if (encodeAlpha) {
-                        scanLines[scanPos++] = (byte) ((pixels[i] >> 24) & 0xff);
-                    }
+                        scanLines[scanPos++] = data[4*i+0]; //(byte) ((pixels[i] >> 24) & 0xff);
+                    } 
+                    
                     if ((i % width == width - 1) && (filter != FILTER_NONE)) {
                         if (filter == FILTER_SUB) {
                             filterSub(scanLines, startPos, width);

@@ -9,12 +9,12 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.BitSet;
 
+import remotesensing.pixels.IntegerPixel;
 import remotesensing.util.Image.ByteOrder;
 import remotesensing.util.Image.DataType;
 import remotesensing.util.Image.Interleave;
@@ -226,7 +226,7 @@ public class Utils {
 
 		MappedByteBuffer buffer = fin.getChannel().map(MapMode.READ_ONLY, 0, data.length());
 		
-		return new ByteBufferImage(buffer, lines, samples, bands, type, interleave, order, new int[] { 0, 0, 0 }, "empty");
+		return new Image(buffer, lines, samples, bands, type, interleave, order, new int[] { 0, 0, 0 }, "empty");
 	}
 
 	public static int countBands(boolean [] bands) throws IOException {
@@ -242,27 +242,46 @@ public class Utils {
 		return count;
 	}
 
-	private static void writeENVIDataBSQ(File data, Image img, BitSet bands) throws Exception {
-		throw new Exception("writeENVIDataBSQ NOT implemented!");
+	private static void writeENVIDataBSQ(FileOutputStream out, Image img, BitSet bands) throws Exception {
+	
+		FileChannel fout = out.getChannel();
+		
+		if (bands == null || bands.cardinality() == img.bands) { 
+			// write all!
+			fout.write(img.getDataReadOnly());
+		} else { 
+			
+			final int bandsize = img.lines * img.lines * img.type.bytes; 
+			
+			for (int i=0;i<img.bands;i++) { 
+				if (bands.get(i)) { 
+					fout.write(img.getDataReadOnly(i*bandsize, bandsize));
+				}
+			}
+		}
 	}
 
-	private static void writeENVIDataBIP(File data, Image img, BitSet bands) throws Exception {
+	private static void writeENVIDataBIP(FileOutputStream out, Image img, BitSet bands) throws Exception {
 
-		BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(data));
+		if (bands == null || bands.cardinality() == img.bands) { 
 
-		// Read on a line-by-line basis		
-		int datasize = img.type.bytes();		
-		int size = img.samples * img.bands * datasize;
+			// write all!
+			FileChannel fout = out.getChannel();
+			fout.write(img.getDataReadOnly());
+
+		} else { 
+			
+			BufferedOutputStream bout = new BufferedOutputStream(out);
 		
-		byte [] line = new byte[size];
-
-		for (int i=0;i<img.lines;i++) {
-			img.getRawData(i*size, line, 0, size);	
+			// Write on a line-by-line basis		
+			int datasize = img.type.bytes;		
+			int size = img.samples * img.bands * datasize;
 		
-			if (bands == null) { 
-				out.write(line);
-			} else {
-				
+			byte [] line = new byte[size];
+
+			for (int i=0;i<img.lines;i++) {
+				img.getRawData(i*size, line, 0, size);	
+		
 				int off = 0;
 				
 				// SLOW!
@@ -270,36 +289,39 @@ public class Utils {
 					for (int b=0;b<img.bands;b++) {
 						
 						if (bands.get(b)) { 
-							out.write(line, off, datasize);
+							bout.write(line, off, datasize);
 						}						
 						off+= datasize;
 					}					
 				}
 			} 
 		}
-		
-		out.close();
 	}
 	
-	private static void writeENVIDataBIL(File data, Image img, BitSet bands) throws Exception {
+	private static void writeENVIDataBIL(FileOutputStream out, Image img, BitSet bands) throws Exception {
 		throw new Exception("writeENVIDataBIL NOT implemented!");
 	}
 	
 	private static void writeENVIData(File data, Image img, BitSet bands) throws Exception {
-
+		
+		FileOutputStream out = new FileOutputStream(data);
+		
 		switch (img.interleave) { 
 		case BSQ:
-			writeENVIDataBSQ(data, img, bands);
+			writeENVIDataBSQ(out, img, bands);
 			break;
 		case BIP:
-			writeENVIDataBIP(data, img, bands);
+			writeENVIDataBIP(out, img, bands);
 			break;
 		case BIL:
-			writeENVIDataBIL(data, img, bands);
+			writeENVIDataBIL(out, img, bands);
 			break;
 		default: 
+			out.close();
 			throw new IOException("Cannot write ENVI data: unknown interleave");
 		}
+		
+		out.close();
 	}
 	
 	private static void writeENVIHeader(File header, Image img, BitSet bands) throws IOException {
@@ -389,5 +411,101 @@ public class Utils {
 		}
 
 		return histogram.length-1;
+	}
+	
+	public static Histogram generateHistogram(Image img, int buckets) throws Exception { 
+		return generateHistogram(img, buckets, false);
+	}
+	
+	public static Histogram generateHistogram(Image img, int bins, boolean variableRange) throws Exception { 
+	
+		long maxValue; 
+		long minValue; 
+
+		if (img.type.real || img.type.complex || 
+		    img.type == DataType.U64 || img.type == DataType.S64) { 
+			throw new Exception("Unsupported image type!");
+		}
+
+		long pixels = img.lines * img.samples;
+
+		IntegerPixel p = (IntegerPixel) img.type.createPixel(1);
+
+		if (variableRange) { 
+
+			// NOTE: inverted so max/min works.
+			maxValue = img.type.minIntegerValue;
+			minValue = img.type.maxIntegerValue;
+			
+			for (int i=0;i<pixels;i++) { 
+				
+				img.getPixel(p, i);		
+			
+				long v = p.get(0);			
+				
+				if (v > maxValue) { 
+					maxValue = v;
+				}
+				
+				if (v < minValue) { 
+					minValue = v;
+				}
+			} 
+			
+		} else { 
+			maxValue = img.type.maxIntegerValue;
+			minValue = img.type.minIntegerValue;
+		}
+		
+		long range = maxValue - minValue;
+
+		if (bins > range) {
+			bins = (int) range;
+		}		
+		
+		long [] hist = new long[bins]; 
+		
+		int smallestUsedBin = bins;
+		int largestUsedBin = 0;
+		
+		long smallestBinValue = pixels;
+		long largestBinValue = 0;
+		
+		for (int i=0;i<pixels;i++) { 
+			
+			img.getPixel(p, i);		
+			
+			long v = p.get(0);			
+			
+			double tmp = ((double)(v - minValue)) / range;			
+			int bin = (int) (tmp * (bins-1));
+			
+			hist[bin]++;
+			
+			if (bin < smallestUsedBin) { 
+				smallestUsedBin = bin;
+			}
+			
+			if (bin > largestUsedBin) { 
+				largestUsedBin = bin;
+			}
+			
+			if (hist[bin] < smallestBinValue) { 
+				smallestBinValue = bin;
+			}
+			
+			if (hist[bin] > largestBinValue) { 
+				largestBinValue = bin;
+			}
+		}
+		/*
+		for (int i=0;i<hist.length;i++) { 
+			if (hist[i] != 0) { 
+				System.out.println(i + " " + hist[i]);
+			}
+		}*/
+		
+		
+		return new Histogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
 	}
 }

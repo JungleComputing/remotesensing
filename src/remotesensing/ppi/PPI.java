@@ -1,22 +1,34 @@
 package remotesensing.ppi;
 
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 import remotesensing.util.Image;
 import remotesensing.util.Image.DataType;
 import remotesensing.util.MersenneTwister;
 import remotesensing.util.Pixel;
-import remotesensing.util.S16Image;
 
 public class PPI {
 
 	private final Image input;
 	private final Pixel [] skewers;
 	
-	private S16Image resultImage;
+	private List<Score> maxScores;
+	private List<Score> minScores;
 	
 	private int maxCount;
 	private int minCount;
+	
+	public static class Score { 
+		public final int pixel; 
+		public final int count;
+		
+		public Score(int pixel, int count) { 
+			this.pixel = pixel;
+			this.count = count;
+		}		
+	}
 	
 	public PPI(Image input, int skewers) {		
 		this(input, generateSkewers(input.type, skewers, input.bands));
@@ -100,8 +112,12 @@ public class PPI {
     */
 
 
-	public S16Image getResultImage() {
-		return resultImage;
+	public List<Score> getMaxScores() {
+		return maxScores;
+	}
+
+	public List<Score> getMinScores() {
+		return minScores;
 	}
 	
 	public int getResultMAXCount() {
@@ -112,6 +128,34 @@ public class PPI {
 		return minCount;
 	}
 	
+	private List<Score> getScores(int [] index) { 
+	
+		Arrays.sort(index);
+
+		List<Score> result = new LinkedList<Score>();
+
+		int last = index[0];
+		int count = 1;
+		
+		for (int i=1;i<index.length;i++) { 
+	
+			if (last != index[i]) {
+				
+				//System.out.println("ADD " + last + " " + count);
+				
+				result.add(new Score(last, count));
+				last = index[i];
+				count = 1;
+			} else { 
+				count++;
+			}
+		}
+		
+		result.add(new Score(last, count));
+	
+		return result;
+	}
+		
 	public void run() { 
 		
 		int pixels = input.samples * input.lines;
@@ -148,27 +192,86 @@ public class PPI {
 				}
 			}
 		}
-
-		resultImage = new S16Image(input.lines, input.samples, 1);
-		short [] tmp = (short[]) resultImage.getData();
+		
+		/*
+		ByteBuffer tmp = ByteBuffer.allocate(input.lines * input.samples * 4);
+		IntBuffer itmp = tmp.asIntBuffer();
+		
+		
+		resultImage = new ByteBufferImage(tmp, input.lines, input.samples, 1, 
+				DataType.U32, Interleave.BSQ, ByteOrder.LSF, new int [] { 0, 0, 0}, "");
 		
 		maxCount = 0;
 		minCount = Integer.MAX_VALUE;
+		*/
+	
+		maxScores = getScores(maxIndex);
+		minScores = getScores(minIndex);
+		
+		/*
+		Arrays.sort(maxIndex);
+		Arrays.sort(minIndex);
+		
+		
+		
+		maxScores = new LinkedList<Score>();
+		minScores = new LinkedList<Score>();
+		
+		int lastMax = maxIndex[0];
+		int lastMaxCount = 0;
+	
+		int lastMin = minIndex[0];
+		int lastMinCount = 0;
 		
 		for (int i=0;i<maxIndex.length;i++) { 
-			tmp[maxIndex[i]]++;
+	
+			if (lastMax != maxIndex[i]) { 
+				System.out.println("MAX: " + lastMax + " : " + lastMaxCount);
 			
-			if (tmp[maxIndex[i]] > maxCount) { 
-				maxCount = tmp[maxIndex[i]];
-			}
-			
-			tmp[minIndex[i]]++;
-			
-			if (tmp[minIndex[i]] < minCount) { 
-				minCount = tmp[minIndex[i]];
+				if (maxCount < lastMaxCount) { 
+					maxCount = lastMaxCount;
+				}
+
+				itmp.put(lastMax, lastMaxCount);
+				
+				lastMax = maxIndex[i];
+				lastMaxCount = 1;
+			} else { 
+				lastMaxCount++;
 			}
 		}
-	
+		
+		if (maxCount < lastMaxCount) { 
+			maxCount = lastMaxCount;
+		}
+
+		itmp.put(lastMax, lastMaxCount);
+
+		for (int i=0;i<minIndex.length;i++) { 
+			
+			if (lastMin != minIndex[i]) { 
+				System.out.println("MIN: " + lastMin + " : " + lastMinCount);
+			
+				if (minCount < lastMinCount) { 
+					minCount = lastMinCount;
+				}
+
+				itmp.put(lastMin, lastMinCount);
+				
+				lastMin = minIndex[i];
+				lastMinCount = 1;
+			} else { 
+				lastMinCount++;
+			}
+		}
+		
+		
+		if (minCount < lastMinCount) { 
+			minCount = lastMinCount;
+		}
+
+		itmp.put(lastMin, lastMinCount);
+		
 		System.out.println("MAX: " + maxCount + " MIN: " + minCount);
 		
 		/*for (int i=0;i<input.samples * input.lines;i++) { 

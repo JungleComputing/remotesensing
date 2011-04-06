@@ -1,9 +1,5 @@
 package remotesensing.util;
 
 public abstract class Conversion {
-
-    public Conversion() { 
-        
-    }
-    
+	public abstract Image convert (Image input);
 }
