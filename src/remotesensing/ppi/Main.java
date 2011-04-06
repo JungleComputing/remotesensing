@@ -9,29 +9,39 @@ import remotesensing.util.Image;
 import remotesensing.util.Image.ByteOrder;
 import remotesensing.util.Image.DataType;
 import remotesensing.util.Image.Interleave;
-import remotesensing.util.Pixel;
+import remotesensing.util.LookupTable;
 import remotesensing.util.PngEncoder;
 import remotesensing.util.Utils;
 
 public class Main {
 
 	private static Image generateResultImage(int lines, int samples, 
-			List<Score> maxScore, List<Score> minScore, int skewers) { 
+			List<Score> maxScore, List<Score> minScore, int skewers) throws Exception { 
 	
 		ByteBuffer tmp = ByteBuffer.allocate(lines * samples * 4);
 	
-		int maxMax = maxScore.get(0).count;
-		int maxMin = minScore.get(0).count;
+	//	int maxMax = maxScore.get(0).count;
+	//	int maxMin = minScore.get(0).count;
+	
+		LookupTable lut = Utils.generateHistogram(maxScore, 10000).generateStretchedLUT(256);
 		
 		for (Score s : maxScore) { 
-			byte value = (byte) (((s.count * 255) / maxMax) & 0xFF); 			
+	
+			byte value = (byte) (lut.lookup(s.count) & 0xFF);
+			
+			//byte value = (byte) (((s.count * 255) / maxMax) & 0xFF); 			
 			tmp.put(s.pixel*4 + 1, value);
 		
 			System.out.println(" " + s.count + " " + s.pixel);
 		}
 	
-		for (Score s : minScore) { 
-			byte value = (byte) (((s.count * 255) / maxMin) & 0xFF); 			
+		lut = Utils.generateHistogram(minScore, 10000).generateStretchedLUT(256);
+		
+		for (Score s : minScore) {
+			
+			byte value = (byte) (lut.lookup(s.count) & 0xFF);
+			
+			//byte value = (byte) (((s.count * 255) / maxMin) & 0xFF); 			
 			tmp.put(s.pixel*4 + 2, value);
 			
 			// System.out.println("MIN: " + s.pixel + " " + s.count);

@@ -13,8 +13,10 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.BitSet;
+import java.util.List;
 
 import remotesensing.pixels.IntegerPixel;
+import remotesensing.ppi.PPI.Score;
 import remotesensing.util.Image.ByteOrder;
 import remotesensing.util.Image.DataType;
 import remotesensing.util.Image.Interleave;
@@ -505,6 +507,67 @@ public class Utils {
 			}
 		}*/
 		
+		
+		return new Histogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
+	}
+	
+	public static Histogram generateHistogram(List<Score> scores, int bins) throws Exception { 
+
+		// Determine range
+		int maxValue = Integer.MIN_VALUE; 
+		int minValue = Integer.MAX_VALUE;
+		
+		long sum = 0;
+		
+		for (Score s : scores) { 
+			if (s.count > maxValue) { 
+				maxValue = s.count;
+			}
+			
+			if (s.count < minValue) { 
+				minValue = s.count;
+			}
+			
+			sum += s.count;
+		}
+				
+		long range = maxValue - minValue;
+
+		if (bins > range) {
+			bins = (int) range;
+		}		
+		
+		long [] hist = new long[bins]; 
+		
+		int smallestUsedBin = bins;
+		int largestUsedBin = 0;
+		
+		long smallestBinValue = sum;
+		long largestBinValue = 0;
+		
+		for (Score s : scores) { 
+			
+			double tmp = ((double)(s.count - minValue)) / range;			
+			int bin = (int) (tmp * (bins-1));
+			
+			hist[bin]++;
+			
+			if (bin < smallestUsedBin) { 
+				smallestUsedBin = bin;
+			}
+			
+			if (bin > largestUsedBin) { 
+				largestUsedBin = bin;
+			}
+			
+			if (hist[bin] < smallestBinValue) { 
+				smallestBinValue = bin;
+			}
+			
+			if (hist[bin] > largestBinValue) { 
+				largestBinValue = bin;
+			}
+		}
 		
 		return new Histogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
 	}

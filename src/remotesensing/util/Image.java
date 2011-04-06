@@ -66,7 +66,7 @@ public class Image {
 			void get(ByteBuffer source, int soff, int slen, Object target, int toff, int tlen) {
 				source.clear();
 				ShortBuffer buf = source.asShortBuffer();
-		    	buf.limit(soff+slen).position(soff);   	
+				buf.limit(soff+slen).position(soff);   	
 		    	buf.get((short []) target, toff, tlen);		    	
 		    }
 			
@@ -735,7 +735,7 @@ public class Image {
     	return getPixel(null, index);
     }
 
-    public Pixel getPixel(int sample, int line) { 
+    public Pixel getPixel(int line, int sample) { 
     	return getPixel(line*samples + sample);
     }
     

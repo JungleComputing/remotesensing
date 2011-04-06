@@ -52,10 +52,7 @@ public class GenerateImage {
 		gausian = result;
 	}
 		
-	private static void putBlob(short [] image, int samples, int lines, int bands, int x, int y, int b) { 
-		
-		System.out.println("START " + x + " " + y + " " + gausianSize);
-		
+	private static void putBlob(short [] image, int samples, int lines, int bands, int x, int y, int b, boolean noise) { 
 		
 		for (int j=0;j<gausianSize;j++) { 
 			for (int i=0;i<gausianSize;i++) { 
@@ -63,10 +60,12 @@ public class GenerateImage {
 				int ypos = y-gausianMid+j;
 
 				if (xpos >= 0 && xpos < samples && ypos >= 0 && ypos < lines) { 
-
-				System.out.println("    PUT " + xpos + " " + ypos + " " + i + " " + j + " " + (short)(gausian[j][i] * max));
 					
-					image[ypos*bands*samples + xpos*bands+b] = (short)(gausian[j][i] * max);
+					if (noise) { 
+						image[ypos*bands*samples + xpos*bands+b] = (short)(gausian[j][i] * max * (1.0 + (0.01 * (Math.random() - 0.5))));
+					} else { 
+						image[ypos*bands*samples + xpos*bands+b] = (short)(gausian[j][i] * max);
+					}
 				}
 			}
 		}
@@ -80,6 +79,12 @@ public class GenerateImage {
         int lines = Integer.parseInt(args[1]);
         int samples = Integer.parseInt(args[2]);
         int bands = Integer.parseInt(args[3]);
+        
+        boolean noise = false;
+        
+        if (args.length == 5 && args[4].equals("-noise")) { 
+        	noise = true;
+        }
         
         int pixelsPerImage = lines*samples;
     
@@ -109,39 +114,25 @@ public class GenerateImage {
 
         	switch (i) { 
         	case 0:
-            	putBlob(image, samples, lines, bands, samples/2, lines/2, i);
-            	
-            	System.out.println((samples/2) +  " x " + (lines/2) + " " + image[(lines/2*samples + samples/2)*bands]);
-            	
-                break;
+            	putBlob(image, samples, lines, bands, samples/2, lines/2, i, noise);
+            	break;
         	case 1:
-            	putBlob(image, samples, lines, bands, 0, 0, i);
-            	
-            	System.out.println("0 x 0 " + image[1]);
-            	
-                break;
+            	putBlob(image, samples, lines, bands, 0, 0, i, noise);
+            	break;
         	case 2: 
-            	putBlob(image, samples, lines, bands, samples-1, 0, i);
-            	
-            	System.out.println((samples-1) +  " x 0 " + image[(samples-1)*bands+2]);
-            	
-                break;
+            	putBlob(image, samples, lines, bands, samples-1, 0, i, noise);
+            	break;
         	case 3:
-        		putBlob(image, samples, lines, bands, 0, lines-1, i);
-        		
-        		System.out.println("0 x " + (lines-1) + " " + image[((lines-1)*samples)*bands+3]);
-                break;
+        		putBlob(image, samples, lines, bands, 0, lines-1, i, noise);
+        		break;
         	case 4: 
-            	putBlob(image, samples, lines, bands, samples-1, lines-1, i);
-            	
-            	System.out.println((samples-1) +  " x " + (lines-1) + " " + image[image.length-1]);
-            	
+            	putBlob(image, samples, lines, bands, samples-1, lines-1, i, noise);
             	break;
         	default: 
         		int x = (int)(r.nextDouble() * samples);
         		int y = (int)(r.nextDouble() * lines);
 
-        		putBlob(image, samples, lines, bands, x, y, i);
+        		putBlob(image, samples, lines, bands, x, y, i, noise);
         	}
         }
         
