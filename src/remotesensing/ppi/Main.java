@@ -55,27 +55,33 @@ public class Main {
 
 		String header = args[0];
 		String data = args[1];
-		int skewers = Integer.parseInt(args[2]);
+		String type = args[2];
+		
+		int skewers = Integer.parseInt(args[3]);
 
 		long start = System.currentTimeMillis();
-
+		
 		Image image = Utils.readENVI(header, data);
+		
+		PPI ppi = null;
+		
+		if (type.equalsIgnoreCase("LINEAR")) { 
+			ppi = new LinearPPI(image, skewers);		
+		} else if (type.equalsIgnoreCase("TILED")) { 
+			ppi = new TiledPPI(image, skewers);		
+		} else if (type.equalsIgnoreCase("TILED2")) { 
+			ppi = new TiledPPI2(image, skewers);		
+		} else { 
 
-		// HACK to check test image....
-		
-		System.out.println("0x0 " + image.getPixel(0, 0));
-		System.out.println("0x" + (image.samples-1) + image.getPixel(0, image.samples-1));
-		System.out.println((image.lines-1) + "x0 " + image.getPixel(image.lines-1, 0));
-		System.out.println((image.lines-1) + "x" + (image.samples-1) + " " + image.getPixel(image.lines-1, image.samples-1));
-		System.out.println((image.lines/2) + "x" + (image.samples/2) + " " + image.getPixel(image.lines/2, image.samples/2));
-		
-		PPI ppi = new PPI(image, skewers);		
+			System.err.println("Unknown PPI type " + type);
+			System.exit(1);
+		}
 
 		long mid = System.currentTimeMillis();
 
 		System.out.println("Reading took " + (mid-start)/1000.0 + " sec.");
 
-		ppi.run();
+		ppi.process();
 
 		long end = System.currentTimeMillis();
 
