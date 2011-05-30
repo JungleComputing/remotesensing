@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="RemoteSensing" default="jar" basedir=".">
+
+	<property name="BUILD_PATH" value="build/" />
+	<property name="SRC_PATH" value="src" />
+	<property name="LIB_PATH" value="external" />
+	<property name="JAR_LOCATION" value="remotesensing-0.1.jar" />
+
+	<target name="clean">
+		<delete dir="${BUILD_PATH}" />
+	</target>
+
+	<target name="init">
+		<mkdir dir="${BUILD_PATH}" />
+	</target>
+
+	<target name="compile" depends="init" description="">
+		<javac srcdir="${SRC_PATH}" destdir="${BUILD_PATH}" debug="true" includeantruntime="false">
+			<classpath>
+				<fileset dir="${LIB_PATH}">
+					<include name="**/*.jar" />
+				</fileset>				
+			</classpath>
+		</javac>
+	</target>
+
+	<target name="jar" depends="compile">
+		<jar destfile="${JAR_LOCATION}" basedir="${BUILD_PATH}">
+		</jar>
+	</target>
+
+</project>
