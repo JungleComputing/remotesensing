@@ -5,6 +5,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -14,8 +15,11 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.BitSet;
 import java.util.List;
+import java.util.StringTokenizer;
 
+import remotesensing.pixels.F32Pixel;
 import remotesensing.pixels.IntegerPixel;
+import remotesensing.pixels.RealPixel;
 import remotesensing.ppi.PPI.Score;
 import remotesensing.util.Image.ByteOrder;
 import remotesensing.util.Image.DataType;
@@ -341,7 +345,15 @@ public class Utils {
 	
 		out.close();
 	}
+	
+	public static void writeENVI(String header, String data, Image img) throws Exception {
 		
+		BitSet set = new BitSet(img.bands);
+		set.set(0, img.bands, true);
+		
+		writeENVI(new File(header), new File(data), img, set);
+	}
+	
 	public static void writeENVI(String header, String data, Image img, BitSet bands) throws Exception {
 		writeENVI(new File(header), new File(data), img, bands);
 	}
@@ -420,16 +432,11 @@ public class Utils {
 	public static Histogram generateHistogram(Image img, int buckets) throws Exception { 
 		return generateHistogram(img, buckets, false);
 	}
-	
-	public static Histogram generateHistogram(Image img, int bins, boolean variableRange) throws Exception { 
-	
+
+	private static Histogram generateIntegerHistogram(Image img, int bins, boolean variableRange) throws Exception { 
+				
 		long maxValue; 
 		long minValue; 
-
-		if (img.type.real || img.type.complex || 
-		    img.type == DataType.U64 || img.type == DataType.S64) { 
-			throw new Exception("Unsupported image type!");
-		}
 
 		long pixels = img.lines * img.samples;
 
@@ -510,7 +517,90 @@ public class Utils {
 		}*/
 		
 		
-		return new Histogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
+		return new IntegerHistogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
+	}
+	
+	private static Histogram generateRealHistogram(Image img, int bins) throws Exception { 
+
+		double maxValue; 
+		double minValue; 
+
+		long pixels = img.lines * img.samples;
+
+		RealPixel p = (RealPixel) img.type.createPixel(1);
+
+		// NOTE: inverted so max/min works.
+		maxValue = img.type.minRealValue;
+		minValue = img.type.maxRealValue;
+			
+		for (int i=0;i<pixels;i++) { 
+				
+			img.getPixel(p, i);		
+
+			double v = p.get(0);			
+
+			if (v > maxValue) { 
+				maxValue = v;
+			}
+
+			if (v < minValue) { 
+				minValue = v;
+			}
+		} 
+		
+		double range = maxValue - minValue;
+		
+		long [] hist = new long[bins]; 
+		
+		int smallestUsedBin = bins;
+		int largestUsedBin = 0;
+		
+		long smallestBinValue = pixels;
+		long largestBinValue = 0;
+		
+		for (int i=0;i<pixels;i++) { 
+			
+			img.getPixel(p, i);		
+			
+			double v = p.get(0);			
+			
+			double tmp = (v - minValue) / range;			
+			int bin = (int) (tmp * (bins-1));
+			
+			hist[bin]++;
+			
+			if (bin < smallestUsedBin) { 
+				smallestUsedBin = bin;
+			}
+			
+			if (bin > largestUsedBin) { 
+				largestUsedBin = bin;
+			}
+			
+			if (hist[bin] < smallestBinValue) { 
+				smallestBinValue = bin;
+			}
+			
+			if (hist[bin] > largestBinValue) { 
+				largestBinValue = bin;
+			}
+		}
+		
+		return new RealHistogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
+	}
+	
+	
+	public static Histogram generateHistogram(Image img, int bins, boolean variableRange) throws Exception { 
+	
+		if (img.type.complex || img.type == DataType.U64 || img.type == DataType.S64) { 
+			throw new Exception("Unsupported image type!");
+		}
+
+		if (img.type.real) { 
+			return generateRealHistogram(img, bins);
+		} else { 
+			return generateIntegerHistogram(img, bins, variableRange);
+		}
 	}
 	
 	public static Histogram generateHistogram(List<Score> scores, int bins) throws Exception { 
@@ -571,6 +661,170 @@ public class Utils {
 			}
 		}
 		
-		return new Histogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
+		return new IntegerHistogram(hist, minValue, maxValue, smallestUsedBin, largestUsedBin, smallestBinValue, largestBinValue);		
 	}
+	
+	public static void bandwiseStandardDeviationAndMean(Image image, double [] stddev, double [] mean) {
+		
+		final int pixels = image.lines * image.samples;		
+		//final int degrees = (pixels - 1);
+	
+		final Pixel p = image.type.createPixel(image.bands);
+
+		for (int i=0; i<pixels;i++) {		
+			image.getPixel(p, i);
+			
+			for (int b=0; b<image.bands; b++) {
+				mean[b] += p.getAsReal(b);
+			}	
+		}
+		
+		for (int b=0; b<image.bands; b++) {
+			mean[b] = mean[b] / pixels;
+		}
+		
+		for (int i=0; i<pixels;i++) {		
+			image.getPixel(p, i);
+			
+			for (int b=0; b<image.bands; b++) {
+				double tmp = p.getAsReal(b) - mean[b];
+				stddev[b] += tmp * tmp;
+			}	
+		}
+		
+		for (int b=0; b<image.bands; b++) {
+			//stddev[b] = Math.sqrt(stddev[b] / degrees);
+			stddev[b] = Math.sqrt(stddev[b] / pixels);
+		}		
+	}
+	
+	public static double[][] centerReduceToDouble(Image image, double [] stddev, double [] mean) {
+
+		final int pixels = image.lines * image.samples;
+		
+		double [][] y = new double[pixels][image.bands];
+		
+		Pixel p = null;
+		
+		for (int i=0;i<pixels;i++) {
+			
+			p = image.getPixel(p, i);
+							
+			for (int j=0;j<image.bands;j++) {
+				y[i][j] = (p.getAsReal(j) - mean[j]) / stddev[j];
+			}
+		}
+		return y;
+	} 
+		
+	
+	public static double[][] centerReduceToDouble(Image image) {
+		
+		double [] stddev = new double[image.bands];
+		double [] mean = new double[image.bands];
+		
+		bandwiseStandardDeviationAndMean(image, stddev, mean);
+
+		return centerReduceToDouble(image, stddev, mean);
+	}
+	
+	public static float[][] centerReduceToFloat(Image image, double [] stddev, double [] mean) {
+		
+		final int pixels = image.lines * image.samples;
+		
+		float [][] y = new float[pixels][image.bands];
+		
+		Pixel p = null;
+		
+		for (int i=0;i<pixels;i++) {
+			
+			p = image.getPixel(p, i);
+							
+			for (int j=0;j<image.bands;j++) {
+				y[i][j] = (float) ((p.getAsReal(j) - mean[j]) / stddev[j]);
+			}
+		}
+		return y;
+	}
+
+	public static float[][] centerReduceToFloat(Image image) {
+
+		double [] stddev = new double[image.bands];
+		double [] mean = new double[image.bands];
+		
+		bandwiseStandardDeviationAndMean(image, stddev, mean);
+
+		return centerReduceToFloat(image, stddev, mean);
+	}
+		
+	public static Image centerReduceToF32Image(Image image) {
+
+		double [] stddev = new double[image.bands];
+		double [] mean = new double[image.bands];
+		
+		bandwiseStandardDeviationAndMean(image, stddev, mean);
+
+		return centerReduceToF32Image(image, stddev, mean);
+	}
+			
+	public static Image centerReduceToF32Image(Image image, double [] stddev, double [] mean) {
+		
+		final int pixels = image.lines * image.samples;
+		
+		final Image result = new Image(image.lines, image.samples, image.bands, 
+				                       DataType.F32, Interleave.BIP, ByteOrder.LSF, 
+				                       image.getDefaultBands(), image.getDescription());
+
+		final float [] tmp = new float[image.bands];
+		final F32Pixel out = new F32Pixel(tmp);
+		
+		Pixel p = null;
+		
+		for (int i=0;i<pixels;i++) {
+			
+			p = image.getPixel(p, i);
+							
+			for (int j=0;j<image.bands;j++) {
+				tmp[j] = (float) ((p.getAsReal(j) - mean[j]) / stddev[j]);
+			}
+			
+			result.putPixel(out, i);
+		}
+		
+		return result;
+	}
+	
+	public static float [][] readSpectralCalibration(String file, int bands) throws IOException {
+		return readSpectralCalibration(new File(file), bands);
+	}
+	
+	public static float [][] readSpectralCalibration(File file, int bands) throws IOException { 
+		
+		BufferedReader r = new BufferedReader(new FileReader(file));
+		
+		float [][] result = new float[bands][4];
+		
+		for (int i=0;i<bands;i++) { 
+			String line = r.readLine();
+		
+			StringTokenizer tok = new StringTokenizer(line);
+			
+			float bandPosition = Float.parseFloat(tok.nextToken());
+			float fwhm = Float.parseFloat(tok.nextToken());
+			float bandUncertain = Float.parseFloat(tok.nextToken());
+			float fwhmUncertain = Float.parseFloat(tok.nextToken());
+			
+			int band = Integer.parseInt(tok.nextToken());
+			
+			result[band-1][0] = bandPosition;
+			result[band-1][1] = fwhm;
+			result[band-1][2] = bandUncertain;
+			result[band-1][3] = fwhmUncertain;
+		}
+		
+		r.close();
+		
+		return result;
+	}
+	
 }

@@ -8,9 +8,13 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 
-import remotesensing.util.GrayScaleDoubleImage;
-import remotesensing.util.GrayScaleDoubleToRGBConversion;
+import remotesensing.pixels.U8Pixel;
+import remotesensing.util.Image;
+import remotesensing.util.Image.DataType;
+import remotesensing.util.Pixel;
 import remotesensing.util.PngEncoder;
+import remotesensing.util.Image.ByteOrder;
+import remotesensing.util.Image.Interleave;
 
 public class Main {
 
@@ -101,17 +105,23 @@ public class Main {
 
             int [][] result = atgp.getResult();
 
-            GrayScaleDoubleImage tmp = new GrayScaleDoubleImage(lines, samples);
+            Image tmp = new Image(lines, samples, 4, DataType.U8, Interleave.BSQ, ByteOrder.LSF, null, "");
 
+            U8Pixel p = new U8Pixel(4);
+            p.put(255, 0);
+            p.put(255, 1);
+            p.put(255, 2);
+            p.put(255, 3);
+            
             for(int i=0;i<30;i++){
                 System.out.printf("\nIteraction [%d]=> %d, %d", i, result[i][0], 
                         result[i][1]);
-
-                tmp.setPixel(result[i][0], result[i][1], 255.0f);
+                
+                tmp.putPixel(p, result[i][0] * samples + result[i][1]);
             }
 
             PngEncoder enc = new PngEncoder(tmp);
-            byte [] out = enc.pngEncode(false, new GrayScaleDoubleToRGBConversion(0.0, 256.0));
+            byte [] out = enc.pngEncode(false);
 
             FileOutputStream fout = new FileOutputStream("result.png");
             fout.write(out);

@@ -59,7 +59,7 @@ public class DumpAsPNG {
             for (int i=0;i<img.bands;i++) { 
             	Image tmp = img.getBand(i);
             
-            	Histogram hist = Utils.generateHistogram(tmp, 65536, true);            	
+            	Histogram hist = Utils.generateHistogram(tmp, 65536, false);            	
             	LookupTable lut = hist.generateStretchedLUT(256);
             	            	            	
             	tmp = convert(tmp, lut);

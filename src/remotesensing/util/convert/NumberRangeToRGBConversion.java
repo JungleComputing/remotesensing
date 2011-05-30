@@ -5,7 +5,6 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 
 import remotesensing.pixels.U32Pixel;
-import remotesensing.util.ByteBufferImage;
 import remotesensing.util.Conversion;
 import remotesensing.util.Gradient;
 import remotesensing.util.Image;

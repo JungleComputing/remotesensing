@@ -3,11 +3,8 @@ package remotesensing.atgp;
 import java.io.FileOutputStream;
 import java.util.HashSet;
 
-import remotesensing.util.GrayScaleDoubleImage;
-import remotesensing.util.GrayScaleDoubleToRGBConversion;
+import remotesensing.pixels.U16Pixel;
 import remotesensing.util.PngEncoder;
-import remotesensing.util.UnsignedShortImage;
-import remotesensing.util.UnsignedShortPixel;
 
 public class ATGP {
 
@@ -46,9 +43,11 @@ public class ATGP {
         result = new int[endmembers][2];
     }
 
+    /*
     public ATGP(UnsignedShortImage img, int endmembers) { 
     	this(img.getData(), img.getLines(), img.getSamples(), img.getBands(), endmembers);
     }
+    */
     
     private double brightnessPixel(int index) {
 
@@ -208,6 +207,7 @@ public class ATGP {
         }        
     }
      */
+    /*
 
     void dumpLastValues(int t) { 
 
@@ -224,7 +224,7 @@ public class ATGP {
             e.printStackTrace();
         }        
     }
-
+*/
 
     public void run() { 
 
@@ -245,7 +245,7 @@ public class ATGP {
             //        System.out.println("atgp  pixel " + Arrays.toString(pixel));
             //maxDistance();
 
-            dumpLastValues(t);
+          //  dumpLastValues(t);
 
             //      System.out.println("maxdist  pixel " + Arrays.toString(pixel));
 
@@ -259,8 +259,8 @@ public class ATGP {
     public int [][] getResult() { 
         return result;        
     }
-
-    private UnsignedShortPixel getPixel(int x, int y) { 
+    
+    private U16Pixel getPixel(int x, int y) { 
     	
     	short [] tmp = new short[bands];
     	
@@ -270,12 +270,12 @@ public class ATGP {
     		tmp[i] = src[linesSamples * i + offset];
     	}
     	
-    	return new UnsignedShortPixel(tmp, bands);
+    	return new U16Pixel(tmp);
     }
     
-    public UnsignedShortPixel [] getEndMembers() {
+    public U16Pixel [] getEndMembers() {
     	
-    	UnsignedShortPixel [] result = new UnsignedShortPixel[endmembers];
+    	U16Pixel [] result = new U16Pixel[endmembers];
     	
     	for (int i=0;i<endmembers;i++) {
     		result[i] = getPixel(this.result[i][0], this.result[i][1]);

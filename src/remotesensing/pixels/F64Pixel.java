@@ -36,7 +36,12 @@ public class F64Pixel extends RealPixel {
 	}
 
 	@Override
-	public double value(int band) {
+	public double get(int band) {
 		return data[band];
+	}
+	
+	@Override
+	public void put(double value, int band) {
+		data[band] = value;
 	}
 }

@@ -9,12 +9,7 @@ import java.io.FileReader;
 import java.io.IOException;
 
 import remotesensing.atgp.ATGP;
-import remotesensing.util.FloatImage;
-import remotesensing.util.GrayScaleDoubleImage;
-import remotesensing.util.GrayScaleDoubleToRGBConversion;
 import remotesensing.util.PngEncoder;
-import remotesensing.util.UnsignedShortImage;
-import remotesensing.util.UnsignedShortPixel;
 
 public class Main {
 
@@ -90,7 +85,7 @@ public class Main {
 
         bis.close();
     }
-
+/*
     private static UnsignedShortImage downmix(UnsignedShortImage img, int downmix) {
     	// FIXME: not implemented!
     	return img;
@@ -138,7 +133,7 @@ public class Main {
             }
                         
             FloatImage result = inversion(img, endmembers);
-            
+*/            
             /*
             for (int i=0;i<planes;i++) { 
             	GrayScaleDoubleImage tmp = unmix.getResult(i);
@@ -150,10 +145,12 @@ public class Main {
             	fout.close();
             }
             */
-            
+/*          
         } catch (Exception e) { 
             System.out.println("OOPS: ");
             e.printStackTrace();
         }
+       
     }
+*/
 }

@@ -331,7 +331,7 @@ public class Image {
 				float [] tmp = new float[bands]; 
 				
 				for (int i=0;i<bands;i++) { 
-					tmp[i] = twister.nextFloat();
+					tmp[i] = twister.nextFloat() - 0.5f;
 				}
 				
 				return new F32Pixel(tmp);
@@ -367,7 +367,7 @@ public class Image {
 				double [] tmp = new double[bands]; 
 				
 				for (int i=0;i<bands;i++) { 
-					tmp[i] = twister.nextDouble();
+					tmp[i] = twister.nextDouble() - 0.5;
 				}
 				
 				return new F64Pixel(tmp);

@@ -8,10 +8,18 @@ public abstract class IntegerPixel extends Pixel {
 		super(bands);
 	}
 
+	public boolean isInteger() { 
+		return true;
+	}
+	    
 	public abstract long get(int band);	
 	
 	public abstract void put(long value, int band);	
-		
+
+    public double getAsReal(int band) { 
+    	return get(band);
+    }
 }
+
 
 
